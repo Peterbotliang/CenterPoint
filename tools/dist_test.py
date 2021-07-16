@@ -136,6 +136,11 @@ def main():
         # model = fuse_bn_recursively(model)
         model = model.cuda()
 
+    print('len(dataset)', len(dataset))
+    print('batch_size', data_loader.batch_size)
+    # print(type(dataset._nusc_infos))
+    # print(dataset._nusc_infos[0])
+
     model.eval()
     mode = "val"
 
@@ -155,57 +160,74 @@ def main():
     time_end = 0 
 
     for i, data_batch in enumerate(data_loader):
-        if i == start:
-            torch.cuda.synchronize()
-            time_start = time.time()
+        if i > 0:
+            break
+        print(data_batch.keys())
+        print(type(data_batch['points']))
+        print('metadata:', data_batch['metadata'])
+        print('shape', data_batch['shape'])
+        print('points shape:', data_batch['points'].shape)
+        print('voxels shape:', data_batch['voxels'].shape)
+        print('num_points shape:', data_batch['num_points'].shape)
+        print(data_batch['num_points'])
+        print(data_batch['coordinates'])
+        print(data_batch['points'][0 , :])
+        print(torch.min(data_batch['points'], dim = 0)[0], torch.max(data_batch['points'], dim = 0)[0])
+        print(torch.min(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0], 
+              torch.max(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0])
+        print(data_batch['voxels'][0, :, :])
+        print(data_batch['voxels'][-1, :, :])
+    #     if i == start:
+    #         torch.cuda.synchronize()
+    #         time_start = time.time()
 
-        if i == end:
-            torch.cuda.synchronize()
-            time_end = time.time()
+    #     if i == end:
+    #         torch.cuda.synchronize()
+    #         time_end = time.time()
 
-        with torch.no_grad():
-            outputs = batch_processor(
-                model, data_batch, train_mode=False, local_rank=args.local_rank,
-            )
-        for output in outputs:
-            token = output["metadata"]["token"]
-            for k, v in output.items():
-                if k not in [
-                    "metadata",
-                ]:
-                    output[k] = v.to(cpu_device)
-            detections.update(
-                {token: output,}
-            )
-            if args.local_rank == 0:
-                prog_bar.update()
+    #     with torch.no_grad():
+    #         outputs = batch_processor(
+    #             model, data_batch, train_mode=False, local_rank=args.local_rank,
+    #         )
+    #     for output in outputs:
+    #         token = output["metadata"]["token"]
+    #         for k, v in output.items():
+    #             if k not in [
+    #                 "metadata",
+    #             ]:
+    #                 output[k] = v.to(cpu_device)
+    #         detections.update(
+    #             {token: output,}
+    #         )
+    #         if args.local_rank == 0:
+    #             prog_bar.update()
 
-    synchronize()
+    # synchronize()
 
-    all_predictions = all_gather(detections)
+    # all_predictions = all_gather(detections)
 
-    print("\n Total time per frame: ", (time_end -  time_start) / (end - start))
+    # print("\n Total time per frame: ", (time_end -  time_start) / (end - start))
 
-    if args.local_rank != 0:
-        return
+    # if args.local_rank != 0:
+    #     return
 
-    predictions = {}
-    for p in all_predictions:
-        predictions.update(p)
+    # predictions = {}
+    # for p in all_predictions:
+    #     predictions.update(p)
 
-    if not os.path.exists(args.work_dir):
-        os.makedirs(args.work_dir)
+    # if not os.path.exists(args.work_dir):
+    #     os.makedirs(args.work_dir)
 
-    save_pred(predictions, args.work_dir)
+    # save_pred(predictions, args.work_dir)
 
-    result_dict, _ = dataset.evaluation(copy.deepcopy(predictions), output_dir=args.work_dir, testset=args.testset)
+    # result_dict, _ = dataset.evaluation(copy.deepcopy(predictions), output_dir=args.work_dir, testset=args.testset)
 
-    if result_dict is not None:
-        for k, v in result_dict["results"].items():
-            print(f"Evaluation {k}: {v}")
+    # if result_dict is not None:
+    #     for k, v in result_dict["results"].items():
+    #         print(f"Evaluation {k}: {v}")
 
-    if args.txt_result:
-        assert False, "No longer support kitti"
+    # if args.txt_result:
+    #     assert False, "No longer support kitti"
 
 if __name__ == "__main__":
     main()
