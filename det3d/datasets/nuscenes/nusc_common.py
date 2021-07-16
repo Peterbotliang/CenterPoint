@@ -281,7 +281,11 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
     ref_chan = "LIDAR_TOP"  # The radar channel from which we track back n sweeps to aggregate the point cloud.
     chan = "LIDAR_TOP"  # The reference channel of the current sample_rec that the point clouds are mapped to.
 
+    print('changed !!!')
     for sample in tqdm(nusc.sample):
+        if not sample['scene_token'] in train_scenes and not sample['scene_token'] in val_scenes:
+            continue
+
         """ Manual save info["sweeps"] """
         # Get reference pose and timestamp
         # ref_chan == "LIDAR_TOP"
