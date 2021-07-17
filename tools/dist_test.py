@@ -61,7 +61,9 @@ def parse_args():
     )
     parser.add_argument("--speed_test", action="store_true")
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--testset", action="store_true")
+    # parser.add_argument("--testset", action="store_true")
+    parser.add_argument("--split", type=str, default='val')
+    parser.add_argument("--output_path", type=str, default='output.pt')
 
     args = parser.parse_args()
     if "LOCAL_RANK" not in os.environ:
@@ -81,6 +83,7 @@ def main():
 
     cfg = Config.fromfile(args.config)
     cfg.local_rank = args.local_rank
+    print(cfg.class_names)
 
     # update configs according to CLI args
     if args.work_dir is not None:
@@ -105,12 +108,17 @@ def main():
 
     model = build_detector(cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
 
-    if args.testset:
+    if args.split == 'test':
         print("Use Test Set")
         dataset = build_dataset(cfg.data.test)
-    else:
+    elif args.split == 'val':
         print("Use Val Set")
         dataset = build_dataset(cfg.data.val)
+    elif args.split == 'train':
+        print("Use Train Set")
+        dataset = build_dataset(cfg.data.train)
+    else:
+        raise NotImplementedError
 
     data_loader = build_dataloader(
         dataset,
@@ -160,35 +168,79 @@ def main():
     time_end = 0 
 
     for i, data_batch in enumerate(data_loader):
-        if i > 0:
-            break
-        print(data_batch.keys())
-        print(type(data_batch['points']))
-        print('metadata:', data_batch['metadata'])
-        print('shape', data_batch['shape'])
-        print('points shape:', data_batch['points'].shape)
-        print('voxels shape:', data_batch['voxels'].shape)
-        print('num_points shape:', data_batch['num_points'].shape)
-        print(data_batch['num_points'])
-        print(data_batch['coordinates'])
-        print(data_batch['points'][0 , :])
-        print(torch.min(data_batch['points'], dim = 0)[0], torch.max(data_batch['points'], dim = 0)[0])
-        print(torch.min(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0], 
-              torch.max(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0])
-        print(data_batch['voxels'][0, :, :])
-        print(data_batch['voxels'][-1, :, :])
-    #     if i == start:
-    #         torch.cuda.synchronize()
-    #         time_start = time.time()
+        # if i > 0:
+        #     break
+        # print(data_batch.keys())
+        # print(type(data_batch['points']))
+        # print('metadata:', data_batch['metadata'])
+        # print('shape', data_batch['shape'])
+        # print('points shape:', data_batch['points'].shape)
+        # print('voxels shape:', data_batch['voxels'].shape)
+        # print('num_points shape:', data_batch['num_points'].shape)
+        # print(data_batch['num_points'])
+        # print(data_batch['coordinates'])
+        # print(data_batch['points'][0 , :])
+        # print(torch.min(data_batch['points'], dim = 0)[0], torch.max(data_batch['points'], dim = 0)[0])
+        # print(torch.min(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0], 
+        #       torch.max(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0])
+        # print(data_batch['voxels'][0, :, :])
+        # print(data_batch['voxels'][-1, :, :])
+        if i == start:
+            torch.cuda.synchronize()
+            time_start = time.time()
 
-    #     if i == end:
-    #         torch.cuda.synchronize()
-    #         time_end = time.time()
+        if i == end:
+            torch.cuda.synchronize()
+            time_end = time.time()
 
-    #     with torch.no_grad():
-    #         outputs = batch_processor(
-    #             model, data_batch, train_mode=False, local_rank=args.local_rank,
-    #         )
+        with torch.no_grad():
+            outputs = batch_processor(
+                model, data_batch, train_mode=False, local_rank=args.local_rank,
+            )
+
+            data = dict(
+                features=data_batch['voxels'].to('cuda'),
+                num_voxels=data_batch['num_points'].to('cuda'),
+                coors=data_batch['coordinates'].to('cuda'),
+                batch_size=len(data_batch['num_voxels'].to('cuda')),
+                input_shape=data_batch["shape"][0],
+            )
+            x, multi_feat = model.extract_feat(data)
+            # input_features = model.reader(data["features"], data["num_voxels"])
+            # x, voxel_feature = model.backbone(
+            #     input_features, data["coors"], data["batch_size"], data["input_shape"]
+            # )
+            # if model.with_neck:
+            #     y = model.neck(x)
+        
+
+        # print(x.shape)
+        # torch.save(x.detach().cpu(), '/content/backbone_feat.pt')
+
+        # print(model.with_neck)
+        # print(outputs[0].keys())
+        # print(outputs[0]['metadata'])
+        # print(outputs[0]['box3d_lidar'].shape)
+        # print(outputs[0]['box3d_lidar'][: 10, :])
+        # print(torch.min(outputs[0]['box3d_lidar'][:, :], dim = 0)[0], torch.max(outputs[0]['box3d_lidar'][:, :], dim = 0)[0])
+        
+
+        for output in outputs:
+            token = output["metadata"]["token"]
+            output['backbone_feat'] = x
+            output['voxels'] = data_batch['voxels']
+            output['points'] = data_batch['points']
+            output['coordinates'] = data_batch['coordinates']
+            output['shape'] = data_batch['shape'][0]
+            for k, v in output.items():
+                if k not in ["metadata", "shape"]:
+                    output[k] = v.to(cpu_device)
+            detections.update(
+                {token: output,}
+            )
+            if args.local_rank == 0:
+                prog_bar.update()
+
     #     for output in outputs:
     #         token = output["metadata"]["token"]
     #         for k, v in output.items():
@@ -201,6 +253,8 @@ def main():
     #         )
     #         if args.local_rank == 0:
     #             prog_bar.update()
+
+    torch.save(detections, os.path.join(args.work_dir, args.output_path))
 
     # synchronize()
 
