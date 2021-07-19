@@ -185,6 +185,10 @@ def main():
         #       torch.max(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0])
         # print(data_batch['voxels'][0, :, :])
         # print(data_batch['voxels'][-1, :, :])
+        # print('0', torch.sum(data_batch['coordinates'][:, 0] == 0))
+        # print('1', torch.sum(data_batch['coordinates'][:, 0] == 1))
+        # print('2', torch.sum(data_batch['coordinates'][:, 0] == 2))
+        # print('3', torch.sum(data_batch['coordinates'][:, 0] == 3))
         if i == start:
             torch.cuda.synchronize()
             time_start = time.time()
@@ -192,6 +196,15 @@ def main():
         if i == end:
             torch.cuda.synchronize()
             time_end = time.time()
+
+        # mask = data_batch['coordinates'][:, 0] == 0
+        # data_batch['voxels'] = data_batch['voxels'][mask, :, :]
+        # data_batch['num_points'] = data_batch['num_points'][mask]
+        # data_batch['coordinates'] = data_batch['coordinates'][mask, :]
+        # data_batch['num_voxels'] = data_batch['num_voxels'][[0], ...]
+        # print('len num_voxels', len(data_batch['num_voxels']))
+        # print('len num_voxels', len(data_batch['num_voxels'].to('cuda')))
+        
 
         with torch.no_grad():
             outputs = batch_processor(
@@ -206,6 +219,7 @@ def main():
                 input_shape=data_batch["shape"][0],
             )
             x, multi_feat = model.extract_feat(data)
+            # print(x.shape)
             # input_features = model.reader(data["features"], data["num_voxels"])
             # x, voxel_feature = model.backbone(
             #     input_features, data["coors"], data["batch_size"], data["input_shape"]
@@ -229,9 +243,9 @@ def main():
             token = output["metadata"]["token"]
             output['backbone_feat'] = x
             output['voxels'] = data_batch['voxels']
-            output['points'] = data_batch['points']
-            output['coordinates'] = data_batch['coordinates']
-            output['shape'] = data_batch['shape'][0]
+            # output['points'] = data_batch['points']
+            # output['coordinates'] = data_batch['coordinates']
+            # output['shape'] = data_batch['shape'][0]
             for k, v in output.items():
                 if k not in ["metadata", "shape"]:
                     output[k] = v.to(cpu_device)
