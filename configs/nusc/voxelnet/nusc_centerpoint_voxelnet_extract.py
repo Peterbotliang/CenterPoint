@@ -50,7 +50,7 @@ model = dict(
         code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2, 1.0, 1.0],
         common_heads={'reg': (2, 2), 'height': (1, 2), 'dim':(3, 2), 'rot':(2, 2), 'vel': (2, 2)},
         share_conv_channel=64,
-        dcn_head=False
+        dcn_head=True
     ),
 )
 
@@ -126,9 +126,8 @@ db_sampler = dict(
 train_preprocessor = dict(
     mode="train",
     shuffle_points=True,
-    global_rot_noise=[-0.78539816, 0.78539816],
-    global_scale_noise=[0.9, 1.1],
-    global_translate_std=0.5,
+    global_rot_noise=[-0.3925, 0.3925],
+    global_scale_noise=[0.95, 1.05],
     db_sampler=db_sampler,
     class_names=class_names,
 )
@@ -174,8 +173,8 @@ data = dict(
         type=dataset_type,
         root_path=data_root,
         info_path=train_anno,
-        ann_file=train_anno,
         test_mode=True,
+        ann_file=train_anno,
         nsweeps=nsweeps,
         class_names=class_names,
         pipeline=test_pipeline,
@@ -195,7 +194,6 @@ data = dict(
         root_path=data_root,
         info_path=test_anno,
         ann_file=test_anno,
-        test_mode=True,
         nsweeps=nsweeps,
         class_names=class_names,
         pipeline=test_pipeline,
