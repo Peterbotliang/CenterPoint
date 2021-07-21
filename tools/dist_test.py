@@ -242,7 +242,7 @@ def main():
         for output in outputs:
             token = output["metadata"]["token"]
             output['backbone_feat'] = x
-            output['voxels'] = data_batch['voxels']
+            # output['voxels'] = data_batch['voxels']
             # output['points'] = data_batch['points']
             # output['coordinates'] = data_batch['coordinates']
             # output['shape'] = data_batch['shape'][0]
@@ -270,23 +270,26 @@ def main():
 
     torch.save(detections, os.path.join(args.work_dir, args.output_path))
 
-    # synchronize()
+    for k in detections.keys():
+        detections[k].pop('backbone_feat', None)
 
-    # all_predictions = all_gather(detections)
+    synchronize()
 
-    # print("\n Total time per frame: ", (time_end -  time_start) / (end - start))
+    all_predictions = all_gather(detections)
 
-    # if args.local_rank != 0:
-    #     return
+    print("\n Total time per frame: ", (time_end -  time_start) / (end - start))
 
-    # predictions = {}
-    # for p in all_predictions:
-    #     predictions.update(p)
+    if args.local_rank != 0:
+        return
 
-    # if not os.path.exists(args.work_dir):
-    #     os.makedirs(args.work_dir)
+    predictions = {}
+    for p in all_predictions:
+        predictions.update(p)
 
-    # save_pred(predictions, args.work_dir)
+    if not os.path.exists(args.work_dir):
+        os.makedirs(args.work_dir)
+
+    save_pred(predictions, args.work_dir)
 
     # result_dict, _ = dataset.evaluation(copy.deepcopy(predictions), output_dir=args.work_dir, testset=args.testset)
 
