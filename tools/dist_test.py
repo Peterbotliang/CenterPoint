@@ -64,6 +64,7 @@ def parse_args():
     # parser.add_argument("--testset", action="store_true")
     parser.add_argument("--split", type=str, default='val')
     parser.add_argument("--output_path", type=str, default='output.pt')
+    parser.add_argument('--voxel_dir', type=str, default='./voxels')
 
     args = parser.parse_args()
     if "LOCAL_RANK" not in os.environ:
@@ -167,6 +168,9 @@ def main():
     time_start = 0 
     time_end = 0 
 
+    if not os.path.exists(args.voxel_dir):
+        os.mkdir(args.voxel_dir)
+
     for i, data_batch in enumerate(data_loader):
         # if i > 0:
         #     break
@@ -211,25 +215,24 @@ def main():
                 model, data_batch, train_mode=False, local_rank=args.local_rank,
             )
 
-            data = dict(
-                features=data_batch['voxels'].to('cuda'),
-                num_voxels=data_batch['num_points'].to('cuda'),
-                coors=data_batch['coordinates'].to('cuda'),
-                batch_size=len(data_batch['num_voxels'].to('cuda')),
-                input_shape=data_batch["shape"][0],
-            )
-            x, multi_feat = model.extract_feat(data)
-            # print(x.shape)
-            # input_features = model.reader(data["features"], data["num_voxels"])
-            # x, voxel_feature = model.backbone(
-            #     input_features, data["coors"], data["batch_size"], data["input_shape"]
+            # data = dict(
+            #     features=data_batch['voxels'].to('cuda'),
+            #     num_voxels=data_batch['num_points'].to('cuda'),
+            #     coors=data_batch['coordinates'].to('cuda'),
+            #     batch_size=len(data_batch['num_voxels']),
+            #     input_shape=data_batch["shape"][0],
             # )
-            # if model.with_neck:
-            #     y = model.neck(x)
-        
+            # x, multi_feat = model.extract_feat(data)
 
-        # print(x.shape)
-        # torch.save(x.detach().cpu(), '/content/backbone_feat.pt')
+        data = dict(
+            features=torch.sum(data_batch['voxels'], dim = 1, keepdim = True) / data_batch['num_points'][:, None, None],
+            num_voxels=torch.ones_like(data_batch['num_points']),
+            coors=data_batch['coordinates'],
+            batch_size=len(data_batch['num_voxels']),
+            input_shape=data_batch["shape"][0],
+        )
+
+        torch.save(data, os.path.join(args.voxel_dir, data_batch['metadata'][0]['token'] + '.pt'))
 
         # print(model.with_neck)
         # print(outputs[0].keys())
@@ -241,11 +244,6 @@ def main():
 
         for output in outputs:
             token = output["metadata"]["token"]
-            output['backbone_feat'] = x
-            # output['voxels'] = data_batch['voxels']
-            # output['points'] = data_batch['points']
-            # output['coordinates'] = data_batch['coordinates']
-            # output['shape'] = data_batch['shape'][0]
             for k, v in output.items():
                 if k not in ["metadata", "shape"]:
                     output[k] = v.to(cpu_device)
@@ -255,20 +253,7 @@ def main():
             if args.local_rank == 0:
                 prog_bar.update()
 
-    #     for output in outputs:
-    #         token = output["metadata"]["token"]
-    #         for k, v in output.items():
-    #             if k not in [
-    #                 "metadata",
-    #             ]:
-    #                 output[k] = v.to(cpu_device)
-    #         detections.update(
-    #             {token: output,}
-    #         )
-    #         if args.local_rank == 0:
-    #             prog_bar.update()
-
-    torch.save(detections, os.path.join(args.work_dir, args.output_path))
+    # torch.save(detections, os.path.join(args.work_dir, args.output_path))
 
     for k in detections.keys():
         detections[k].pop('backbone_feat', None)
