@@ -185,7 +185,7 @@ class NuScenesDataset(PointCloudDataset):
     def __getitem__(self, idx):
         return self.get_sensor_data(idx)
 
-    def evaluation(self, detections, output_dir=None, testset=False):
+    def evaluation(self, detections, output_dir=None, testset=False, save_only=False):
         version = self.version
         eval_set_map = {
             "v1.0-mini": "mini_val",
@@ -282,6 +282,9 @@ class NuScenesDataset(PointCloudDataset):
             json.dump(nusc_annos, f)
 
         print(f"Finish generate predictions for testset, save to {res_path}")
+
+        if save_only:
+            return None, None
 
         if not testset:
             eval_main(
