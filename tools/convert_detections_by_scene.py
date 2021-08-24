@@ -100,6 +100,6 @@ if __name__ == '__main__':
     print(detections_by_scene.keys())
 
     for scene, detection in detections_by_scene.items():
-        detection_feat = [x['backbone_feat'] for x in detection]
-        torch.save(detection_feat, os.path.join(output_dir_, scene + '.pt'))
+        # detection_feat = [x['backbone_feat'] for x in detection]
+        # torch.save(detection_feat, os.path.join(output_dir_, scene + '.pt'))
         torch.save(detection, os.path.join(output_dir_, scene + '_all.pt'))
