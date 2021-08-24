@@ -2,7 +2,7 @@ import itertools
 import logging
 
 from det3d.utils.config_tool import get_downsample_factor
-DOUBLE_FLIP = True
+DOUBLE_FLIP = False
 
 tasks = [
     dict(num_class=1, class_names=["car"]),
