@@ -172,8 +172,8 @@ def main():
         os.mkdir(args.voxel_dir)
 
     for i, data_batch in enumerate(data_loader):
-        # if i > 0:
-        #     break
+        if i > 0:
+            break
         # print(data_batch.keys())
         # print(type(data_batch['points']))
         # print('metadata:', data_batch['metadata'])
@@ -223,6 +223,12 @@ def main():
             #     input_shape=data_batch["shape"][0],
             # )
             # x, multi_feat = model.extract_feat(data)
+            # preds = model.bbox_head(x)
+            # print(x.shape)
+            # print(type(preds))
+            # print(len(preds))
+            # print(type(preds[0]))
+            # print(preds[0].keys())
 
         data = dict(
             features=torch.sum(data_batch['voxels'], dim = 1, keepdim = True) / data_batch['num_points'][:, None, None],
@@ -253,10 +259,11 @@ def main():
             if args.local_rank == 0:
                 prog_bar.update()
 
-    # torch.save(detections, os.path.join(args.work_dir, args.output_path))
-
+    
     for k in detections.keys():
         detections[k].pop('backbone_feat', None)
+
+    torch.save(detections, os.path.join(args.work_dir, args.output_path))
 
     synchronize()
 
