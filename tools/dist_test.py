@@ -174,8 +174,8 @@ def main():
         os.mkdir(args.voxel_dir)
 
     for i, data_batch in enumerate(data_loader):
-        if i > 0:
-            break
+        # if i > 0:
+        #     break
         # print(data_batch.keys())
         # print(type(data_batch['points']))
         # print('metadata:', data_batch['metadata'])
@@ -184,8 +184,8 @@ def main():
         # print('voxels shape:', data_batch['voxels'].shape)
         # print('num_points shape:', data_batch['num_points'].shape)
         # print(data_batch['num_points'])
-        print(data_batch['coordinates'])
-        print(data_batch['coordinates'].shape)
+        # print(data_batch['coordinates'])
+        # print(data_batch['coordinates'].shape)
         # print(data_batch['points'][0 , :])
         # print(torch.min(data_batch['points'], dim = 0)[0], torch.max(data_batch['points'], dim = 0)[0])
         # print(torch.min(torch.sum(data_batch['voxels'], dim = 1) / data_batch['num_points'][:, None], dim = 0)[0], 
@@ -226,76 +226,36 @@ def main():
             #     input_shape=data_batch["shape"][0],
             # )
             # x, multi_feat = model.extract_feat(data)
-            # preds = model.bbox_head(x)
-            # print(x.shape)
-            # print(type(preds))
-            # print(len(preds))
-            # print(type(preds[0]))
-            # print(preds[0].keys())
 
+        # data = dict(
+        #     features=torch.sum(data_batch['voxels'], dim = 1, keepdim = True) / data_batch['num_points'][:, None, None],
+        #     num_voxels=torch.ones_like(data_batch['num_points']),
+        #     coors=data_batch['coordinates'],
+        #     batch_size=len(data_batch['num_voxels']),
+        #     input_shape=data_batch["shape"][0],
+        # )
+        # print(data['features'].shape)
+        # print(data['num_voxels'].shape)
+        # print(data['coors'].shape)
+        # print(data['coors'])
+        # print(data['batch_size'])
+        # print(data['input_shape'])
 
+        mask = data_batch['coordinates'][:, 0] == 0
         data = dict(
-            features=(torch.sum(data_batch['voxels'], dim = 1, keepdim = True) / data_batch['num_points'][:, None, None]).to('cuda'),
-            num_voxels=torch.ones_like(data_batch['num_points']).to('cuda'),
-            coors=data_batch['coordinates'].to('cuda'),
+            features=torch.sum(data_batch['voxels'][mask, :, :], dim = 1, keepdim = True) / data_batch['num_points'][mask, None, None],
+            num_voxels=torch.ones_like(data_batch['num_points'][mask]),
+            coors=data_batch['coordinates'][mask, :],
             batch_size=len(data_batch['num_voxels']),
             input_shape=data_batch["shape"][0],
         )
-        with torch.no_grad():
-            x, multi_feat = model.extract_feat(data)
+        # print(data['features'].shape)
+        # print(data['num_voxels'].shape)
+        # print(data['coors'].shape)
+        # print(data['coors'])
+        # print(data['batch_size'])
+        # print(data['input_shape'])
 
-        data = dict(
-            features=torch.sum(data_batch['voxels'], dim = 1, keepdim = True) / data_batch['num_points'][:, None, None],
-            num_voxels=torch.ones_like(data_batch['num_points']),
-            coors=data_batch['coordinates'],
-            batch_size=len(data_batch['num_voxels']),
-            input_shape=data_batch["shape"][0],
-        )
-        print(data['features'].shape)
-        print(data['num_voxels'].shape)
-        print(data['coors'].shape)
-        print(data['batch_size'])
-        print(data['input_shape'])
-
-
-
-        data_tensor_ = torch.sparse_coo_tensor(indices = data['coors'].transpose(0, 1),
-                                                values = data['features'],
-                                                size = (len(data_batch['num_voxels']), 40, 1440, 1440, 1, 5))
-        data_tensor = data_tensor_[0, ...].to_dense()
-        print(data_tensor.shape)
-        data_tensor_xflip = torch.flip(data_tensor, dims = [1])
-        data_tensor_yflip = torch.flip(data_tensor, dims = [2])
-        data_tensor_dflip = torch.flip(data_tensor, dims = [1, 2])
-        data_tensor_all = torch.stack([data_tensor, data_tensor_xflip, data_tensor_yflip, data_tensor_dflip]).to_sparse(4)
-
-        del data_tensor, data_tensor_xflip, data_tensor_yflip, data_tensor_dflip
-
-        # print(torch.sum(data_tensor_.to_dense() != data_tensor_all.to_dense()))
-        # print(torch.sum(data_tensor_.to_dense()[0, ...] != data_tensor_all.to_dense()[0, ...]))
-        # print(torch.sum(data_tensor_.to_dense()[1, ...] != data_tensor_all.to_dense()[1, ...]))
-        # print(torch.sum(data_tensor_.to_dense()[2, ...] != data_tensor_all.to_dense()[2, ...]))
-        # print(torch.sum(data_tensor_.to_dense()[3, ...] != data_tensor_all.to_dense()[3, ...]))
-
-        data_ = dict(
-            features = (data_tensor_all.values()).to('cuda'),
-            num_voxels = (torch.ones(data_tensor_all.values().shape[0])).to('cuda'),
-            coors=(data_tensor_all._indices().transpose(0, 1).int()).to('cuda'),
-            batch_size=len(data_batch['num_voxels']),
-            input_shape=data_batch["shape"][0],
-        )
-        print(data_['features'].shape)
-        print(data_['num_voxels'].shape)
-        print(data_['coors'].shape)
-        print(data_['coors'].dtype)
-        print(data_['coors'])
-        print(data_['batch_size'])
-        print(data_['input_shape'])
-        with torch.no_grad():
-            # model = model.cpu()
-            x, multi_feat = model.extract_feat(data_)
-
-        print('pass')
 
         model = model.cuda()
         with torch.no_grad():
@@ -321,8 +281,9 @@ def main():
             detections.update(
                 {token: output,}
             )
-            if args.local_rank == 0:
-                prog_bar.update()
+
+        if args.local_rank == 0:
+            prog_bar.update()
 
     
     for k in detections.keys():
