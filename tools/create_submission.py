@@ -76,18 +76,24 @@ def main():
         raise NotImplementedError
 
     predictions_all = {}
-    for i in range(1, 11):
-        intstr = str(i).zfill(2)
-        prediction_path = os.path.join(args.prediction_dir, 'prediction_blob' + intstr + '_' + args.split + '.pkl')
-        if os.path.exists(prediction_path):
-            print(i)
-            with open(prediction_path, 'rb') as f:
-                predictions = pickle.load(f)
-            predictions_all.update(predictions)
+    if args.split == 'test':
+        prediction_path = os.path.join(args.prediction_dir, 'prediction_test.pkl')
+        with open(prediction_path, 'rb') as f:
+            predictions = pickle.load(f)
+        predictions_all.update(predictions)
+    else:
+        for i in range(1, 11):
+            intstr = str(i).zfill(2)
+            prediction_path = os.path.join(args.prediction_dir, 'prediction_blob' + intstr + '_' + args.split + '.pkl')
+            if os.path.exists(prediction_path):
+                print(i)
+                with open(prediction_path, 'rb') as f:
+                    predictions = pickle.load(f)
+                predictions_all.update(predictions)
 
     result_dict, _ = dataset.evaluation(copy.deepcopy(predictions_all), 
                                         output_dir=args.work_dir, 
-                                        testset=False,
+                                        testset=('test' in args.split),
                                         save_only = True)
 
     # if result_dict is not None:
