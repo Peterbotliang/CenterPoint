@@ -3,6 +3,11 @@ import copy
 import json
 import os
 import sys
+sys.path.append(os.path.dirname(__file__))
+path_to_c = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Add this path to the beginning of Python's search paths
+if path_to_c not in sys.path:
+    sys.path.insert(0, path_to_c)
 
 try:
     import apex
@@ -161,6 +166,9 @@ def main():
 
     time_start = 0 
     time_end = 0 
+
+    if not os.path.exists(args.work_dir):
+        os.makedirs(args.work_dir)
 
     if not os.path.exists(args.voxel_dir):
         os.mkdir(args.voxel_dir)

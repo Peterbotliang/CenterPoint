@@ -3,6 +3,13 @@ from pathlib import Path
 import pickle
 
 import fire, os
+# import os
+import sys
+sys.path.append(os.path.dirname(__file__))
+path_to_c = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Add this path to the beginning of Python's search paths
+if path_to_c not in sys.path:
+    sys.path.insert(0, path_to_c)
 
 from det3d.datasets.nuscenes import nusc_common as nu_ds
 from det3d.datasets.utils.create_gt_database import create_groundtruth_database
